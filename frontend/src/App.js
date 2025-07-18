@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
+import emailjs from '@emailjs/browser';
+
 
 const ClothingLandingPage = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -11,13 +13,69 @@ const ClothingLandingPage = () => {
   const [showNewsletter, setShowNewsletter] = useState(false);
   const [email, setEmail] = useState('');
 
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-    };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+const handleNewsletterSubmit = (e) => {
+  e.preventDefault(); // ✅ Prevent page refresh
+
+  if (!email) {
+    alert("Please enter an email address.");
+    return;
+  }
+
+  const templateParams = {
+    user_email: email,
+  };
+
+  emailjs
+    .send(
+      "service_wd0qu0o",           // Your service ID
+      "template_vhs08na",          // Your template ID
+      templateParams,
+      "gNUV64N3DB0k-nd0q"          // Your public key
+    )
+    .then(
+      (response) => {
+        console.log("Email sent successfully!", response.status, response.text);
+        alert("Thanks for subscribing!");
+        setEmail(""); // Reset the form
+      },
+      (error) => {
+        console.error("Failed to send email:", error);
+        alert("Something went wrong. Please try again.");
+      }
+    );
+};
+
+const removeFromCart = (productId, size, color) => {
+  setCartItems(prev =>
+    prev.filter(item => !(item.id === productId && item.size === size && item.color === color))
+  );
+};
+
+
+
+
+ // Load from localStorage on mount
+useEffect(() => {
+  const storedCart = localStorage.getItem('cartItems');
+  if (storedCart) {
+    setCartItems(JSON.parse(storedCart));
+  }
+}, []);
+
+// Save to localStorage when cartItems change
+useEffect(() => {
+  localStorage.setItem('cartItems', JSON.stringify(cartItems));
+}, [cartItems]);
+
+// Handle scroll event (your existing code)
+useEffect(() => {
+  const handleScroll = () => {
+    setIsScrolled(window.scrollY > 50);
+  };
+  window.addEventListener('scroll', handleScroll);
+  return () => window.removeEventListener('scroll', handleScroll);
+}, []);
+
 
   const products = [
     {
@@ -129,6 +187,34 @@ const ClothingLandingPage = () => {
     }
   ];
 
+const handleCheckout = async () => {
+  console.log("Checkout button clicked");
+
+  try {
+    const response = await fetch('/.netlify/functions/create-checkout-session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ cartItems }),
+    });
+
+    const data = await response.json();
+    console.log("Stripe session:", data);
+
+    if (data.id) {
+      // Redirect to Stripe Checkout page
+      window.location.href = `https://checkout.stripe.com/pay/${data.id}`;
+    } else {
+      alert("Stripe session failed.");
+    }
+  } catch (error) {
+    console.error("Checkout error:", error);
+    alert("Something went wrong during checkout.");
+  }
+};
+
+
   const addToCart = (product) => {
     const size = selectedSizes[product.id] || product.sizes[0];
     const color = selectedColors[product.id] || product.colors[0];
@@ -167,12 +253,6 @@ const ClothingLandingPage = () => {
     }, 0).toFixed(2);
   };
 
-  const handleNewsletterSubmit = (e) => {
-    e.preventDefault();
-    setShowNewsletter(false);
-    setEmail('');
-    alert('Thank you for subscribing to our newsletter!');
-  };
 
   const scrollToShop = () => {
     document.getElementById('products').scrollIntoView({ behavior: 'smooth' });
@@ -250,9 +330,16 @@ const ClothingLandingPage = () => {
                     <p className="text-xs text-gray-400">{item.size} | {item.color}</p>
                     <p className="text-sm font-bold text-amber-400">{item.salePrice}</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm">Qty: {item.quantity}</p>
-                  </div>
+                 <div className="text-right space-y-2">
+  <p className="text-sm">Qty: {item.quantity}</p>
+  <button
+    onClick={() => removeFromCart(item.id, item.size, item.color)}
+    className="text-xs text-red-400 hover:text-red-200 underline"
+  >
+    Remove
+  </button>
+</div>
+
                 </div>
               ))}
               
@@ -261,9 +348,13 @@ const ClothingLandingPage = () => {
                   <span className="text-lg font-semibold">Total:</span>
                   <span className="text-lg font-bold text-amber-400">${getTotalPrice()}</span>
                 </div>
-                <button className="w-full bg-amber-500 hover:bg-amber-600 text-black font-semibold py-3 rounded-lg transition-colors">
-                  Checkout
-                </button>
+               <button
+  onClick={handleCheckout}
+  className="w-full bg-amber-500 hover:bg-amber-600 text-black font-semibold py-3 rounded-lg transition-colors"
+>
+  Checkout
+</button>
+
               </div>
             </div>
           )}
@@ -602,32 +693,35 @@ const ClothingLandingPage = () => {
               <h3 className="text-2xl font-bold text-white mb-2">Get 15% Off Your First Order</h3>
               <p className="text-gray-400">Subscribe to our newsletter for exclusive offers and updates</p>
             </div>
-            
-            <form onSubmit={handleNewsletterSubmit} className="space-y-4">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-amber-500"
-                required
-              />
-              <div className="flex space-x-4">
-                <button
-                  type="submit"
-                  className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-semibold py-3 rounded-lg transition-colors"
-                >
-                  Subscribe
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowNewsletter(false)}
-                  className="flex-1 bg-white/10 hover:bg-white/20 text-white font-semibold py-3 rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+        <form onSubmit={handleNewsletterSubmit} className="space-y-4">
+<input
+  type="email"
+  name="email"
+  placeholder="Enter your email"
+  required
+  value={email}
+  onChange={(e) => setEmail(e.target.value)}
+  className="w-full p-3 bg-white/20 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-amber-500"
+/>
+  <div className="flex space-x-4">
+  <button
+  type="submit"
+  className="flex-1 bg-amber-500 hover:bg-amber-600 text-black font-semibold py-3 rounded-lg transition-colors"
+>
+  Subscribe
+</button>
+
+
+    <button
+      type="button"
+      onClick={() => setShowNewsletter(false)}
+      className="flex-1 bg-white/10 hover:bg-white/20 text-white font-semibold py-3 rounded-lg transition-colors"
+    >
+      Cancel
+    </button>
+  </div>
+</form>
+
           </div>
         </div>
       )}
