@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
 import emailjs from '@emailjs/browser';
+import { loadStripe } from '@stripe/stripe-js';
+
+const stripePromise = loadStripe('pk_test_51RmJBUQ4VWo8JDwbMYoDuvPUCc6mXgP9LuuJLe7Gkiz2jApHO595H6A5rTFJRjyUKJaq0G3YS7HettUd0gkw2vRE00yDXlrMKm'); // Replace with your actual publishable key
+
 
 
 const ClothingLandingPage = () => {
@@ -194,7 +198,7 @@ const handleCheckout = async () => {
     const response = await fetch('/.netlify/functions/create-checkout-session', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({ cartItems }),
     });
@@ -203,8 +207,12 @@ const handleCheckout = async () => {
     console.log("Stripe session:", data);
 
     if (data.id) {
-      // Redirect to Stripe Checkout page
-      window.location.href = `https://checkout.stripe.com/pay/${data.id}`;
+      const stripe = await stripePromise;
+      const result = await stripe.redirectToCheckout({ sessionId: data.id });
+
+      if (result.error) {
+        alert(result.error.message);
+      }
     } else {
       alert("Stripe session failed.");
     }
@@ -213,6 +221,7 @@ const handleCheckout = async () => {
     alert("Something went wrong during checkout.");
   }
 };
+
 
 
  const addToCart = (product) => {
