@@ -215,26 +215,40 @@ const handleCheckout = async () => {
 };
 
 
-  const addToCart = (product) => {
-    const size = selectedSizes[product.id] || product.sizes[0];
-    const color = selectedColors[product.id] || product.colors[0];
-    
-    setCartItems(prev => {
-      const existingItem = prev.find(item => 
-        item.id === product.id && item.size === size && item.color === color
-      );
-      
-      if (existingItem) {
-        return prev.map(item =>
-          item.id === product.id && item.size === size && item.color === color
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      
-      return [...prev, { ...product, size, color, quantity: 1 }];
-    });
+ const addToCart = (product) => {
+  const size = selectedSizes[product.id] || product.sizes[0];
+  const color = selectedColors[product.id] || product.colors[0];
+
+ setCartItems(prev => {
+  const existingItem = prev.find(item =>
+    item.id === product.id &&
+    item.size === size &&
+    item.color === color
+  );
+
+  const newItem = {
+    ...product,
+    size,
+    color,
+    quantity: 1,
+    salePrice: product.salePrice || product.price || '0', // <-- Make sure this line is present
   };
+
+  if (existingItem) {
+    return prev.map(item =>
+      item.id === product.id &&
+      item.size === size &&
+      item.color === color
+        ? { ...item, quantity: item.quantity + 1 }
+        : item
+    );
+  } else {
+    return [...prev, newItem];
+  }
+});
+
+};
+
 
   const addToWishlist = (product) => {
     setWishlistItems(prev => {
@@ -248,7 +262,11 @@ const handleCheckout = async () => {
 
   const getTotalPrice = () => {
     return cartItems.reduce((total, item) => {
-      const price = parseFloat(item.salePrice.replace('$', ''));
+  const price = parseFloat(
+  (item.salePrice || item.price || '0').replace('$', '')
+);
+
+
       return total + (price * item.quantity);
     }, 0).toFixed(2);
   };
